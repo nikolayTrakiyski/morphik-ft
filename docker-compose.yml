@@ -1,30 +1,16 @@
-version: '3.8'
-
-x-ollama-check: &ollama-check
-  # This command reads the toml file and checks if any provider is set to "ollama"
-  command: >
-    /bin/sh -c '
-    grep -q "provider *= *\"ollama\"" morphik.toml &&
-    echo "true" > /tmp/needs_ollama ||
-    echo "false" > /tmp/needs_ollama'
+version: "3.8"
 
 services:
-  config-check:
-    image: alpine
-    volumes:
-      - ./morphik.toml:/morphik.toml
-    <<: *ollama-check
-
   morphik:
     build: .
     ports:
-      - "8000:8000"
+      - "1341:8000"          # external:internal – change 1341→1342 for a second instance
     environment:
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-secret-key-here}
       - POSTGRES_URI=postgresql+asyncpg://morphik:morphik@postgres:5432/morphik
       - PGPASSWORD=morphik
       - HOST=0.0.0.0
-      - PORT=8000
+      - PORT=8000            # internal port stays the same
       - LOG_LEVEL=DEBUG
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -38,11 +24,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      config-check:
-        condition: service_completed_successfully
-      ollama:
-        condition: service_started
-        required: false
     networks:
       - morphik-network
     env_file:
@@ -68,11 +49,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      config-check:
-        condition: service_completed_successfully
-      ollama:
-        condition: service_started
-        required: false
     networks:
       - morphik-network
     env_file:
@@ -104,7 +80,7 @@ services:
       - POSTGRES_DB=morphik
       - PGDATA=/var/lib/postgresql/data/pgdata
     ports:
-      - "5432:5432"
+      - "7657:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -116,25 +92,11 @@ services:
     networks:
       - morphik-network
 
-  ollama:
-    image: ollama/ollama:latest
-    profiles:
-      - ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-      - ./ollama-entrypoint.sh:/ollama-entrypoint.sh
-    networks:
-      - morphik-network
-    entrypoint: ["/ollama-entrypoint.sh"]
-
 networks:
   morphik-network:
     driver: bridge
 
 volumes:
   postgres_data:
-  ollama_data:
   huggingface_cache:
   redis_data:
